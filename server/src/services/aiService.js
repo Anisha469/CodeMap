@@ -30,8 +30,7 @@ SPECIAL RULES FOR REPOSITORY-LEVEL QUESTIONS:
 
 12. For questions about what the repository does, prioritize README.md,
     package.json, and relevant entry-point files.
-13. Do not use a README example application as evidence for the
-    internal implementation of the repository.
+13. Do not use a README example application as evidence for the internal implementation of the repository.
 
 SPECIAL RULES FOR REQUEST-FLOW QUESTIONS:
 
@@ -82,25 +81,41 @@ Now answer the question directly.
 `;
 
     const response = await axios.post(
-      "http://localhost:11434/api/generate",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
-        model: "llama3.2",
-        prompt,
-        stream: false,
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
       }
     );
 
-    return response.data.response;
+    const answer =
+      response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!answer) {
+      throw new Error("Gemini returned an empty response");
+    }
+
+    return answer;
   } catch (error) {
     console.error(
-      "Ollama AI error:",
-      error.response?.data ||
-        error.message
+      "Gemini AI error:",
+      error.response?.data || error.message
     );
 
-    throw new Error(
-      "Failed to generate AI response"
-    );
+    throw new Error("Failed to generate AI response");
   }
 };
 
