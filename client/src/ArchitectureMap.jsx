@@ -29,7 +29,7 @@ function ArchitectureMap({ repositoryId }) {
         setError("");
 
         const response = await axios.get(
-          `http://localhost:5000/api/repositories/${repositoryId}/architecture`
+          `https://codemap-server.onrender.com/api/repositories/${repositoryId}/architecture`
         );
 
         const architecture = response.data;
