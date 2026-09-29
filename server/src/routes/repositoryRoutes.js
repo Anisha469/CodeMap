@@ -12,6 +12,7 @@ const {
 
 const {
   getArchitecture,
+  getImpactAnalysis,
 } = require("../services/architectureService");
 
 const {
