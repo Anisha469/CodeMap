@@ -237,7 +237,7 @@ function App() {
 
       // Send GitHub URL to backend
       const response = await axios.post(
-        "http://localhost:5000/api/repositories/index",
+        "https://codemap-server.onrender.com/api/repositories/index",
         {
           repoUrl: repoUrl.trim(),
         }
@@ -257,7 +257,7 @@ function App() {
       // Fetch complete repository data
       const repositoryResponse =
         await axios.get(
-          `http://localhost:5000/api/repositories/${id}`
+          `https://codemap-server.onrender.com/api/repositories/${id}`
         );
 
       // Store repository data
@@ -310,7 +310,7 @@ function App() {
       setAiError("");
 
       const response = await axios.post(
-        `http://localhost:5000/api/repositories/${repository._id}/ask`,
+        `https://codemap-server.onrender.com/api/repositories/${repository._id}/ask`,
         {
           question,
         }
