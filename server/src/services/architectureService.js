@@ -165,15 +165,21 @@ const resolveImport = (
     : importPath;
 
   resolvedPath = resolvedPath.replace(
-    /\/+/g,
-    "/"
-  );
+  /\/+/g,
+  "/"
+);
 
-  // Remove "./"
-  resolvedPath = resolvedPath.replace(
-    /^\.\//,
-    ""
-  );
+// Remove "./" from the beginning
+resolvedPath = resolvedPath.replace(
+  /^\.\//,
+  ""
+);
+
+// Normalize nested "./" segments
+resolvedPath = resolvedPath.replace(
+  /\/\.\//g,
+  "/"
+);
 
   const possiblePaths = [
     resolvedPath,
