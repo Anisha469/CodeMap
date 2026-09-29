@@ -341,3 +341,43 @@ body {
   color: #cbd5e1;
   white-space: pre;
 }
+
+/* Code viewer with line numbers */
+
+.code-block {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+}
+
+.code-line {
+  display: flex;
+  min-width: max-content;
+  line-height: 1.6;
+}
+
+.code-line-number {
+  width: 55px;
+  min-width: 55px;
+  padding-right: 15px;
+  text-align: right;
+  user-select: none;
+  opacity: 0.45;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  margin-right: 15px;
+}
+
+.code-line-content {
+  white-space: pre;
+  padding-right: 30px;
+}
+
+.highlighted-code-line {
+  background: rgba(59, 130, 246, 0.22);
+  box-shadow: inset 3px 0 0 #60a5fa;
+}
+
+.highlighted-code-line .code-line-number {
+  opacity: 1;
+  font-weight: 700;
+}

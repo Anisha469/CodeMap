@@ -273,6 +273,7 @@ router.post("/index", async (req, res) => {
       await Repository.create({
         owner,
         name,
+
         fullName:
           githubRepo.full_name,
 
@@ -421,6 +422,233 @@ router.get(
 
 
 // ========================================
+// Helper: Calculate exact relevant source
+// ========================================
+
+const findBestSourceLine = (
+  lines,
+  question
+) => {
+  const lowerQuestion =
+    question.toLowerCase();
+
+  const queryTerms =
+    lowerQuestion
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(
+        (word) => word.length > 2
+      );
+
+  let bestLineIndex = 0;
+  let bestScore = -Infinity;
+
+  lines.forEach(
+    (line, index) => {
+      const lowerLine =
+        line.toLowerCase();
+
+      let score = 0;
+
+      // --------------------------------
+      // General query-term matching
+      // --------------------------------
+
+      queryTerms.forEach((term) => {
+        if (
+          lowerLine.includes(term)
+        ) {
+          score += 1;
+        }
+      });
+
+      // --------------------------------
+      // Application creation questions
+      // --------------------------------
+
+      if (
+        lowerQuestion.includes(
+          "application"
+        ) &&
+        (
+          lowerQuestion.includes(
+            "created"
+          ) ||
+          lowerQuestion.includes(
+            "create"
+          )
+        )
+      ) {
+        if (
+          lowerLine.includes(
+            "function createapplication"
+          )
+        ) {
+          score += 20;
+        }
+
+        if (
+          lowerLine.includes(
+            "createapplication("
+          )
+        ) {
+          score += 15;
+        }
+
+        if (
+          lowerLine.includes(
+            "var app"
+          )
+        ) {
+          score += 8;
+        }
+
+        if (
+          lowerLine.includes(
+            "app ="
+          )
+        ) {
+          score += 5;
+        }
+
+        // Comments should not beat actual implementation.
+        if (
+          lowerLine.includes(
+            "create an express application"
+          )
+        ) {
+          score -= 5;
+        }
+      }
+
+      // --------------------------------
+      // Routing questions
+      // --------------------------------
+
+      if (
+        lowerQuestion.includes(
+          "route"
+        ) ||
+        lowerQuestion.includes(
+          "routing"
+        ) ||
+        lowerQuestion.includes(
+          "handler"
+        )
+      ) {
+        if (
+          lowerLine.includes(
+            "router"
+          )
+        ) {
+          score += 5;
+        }
+
+        if (
+          lowerLine.includes(
+            "router.handle"
+          )
+        ) {
+          score += 12;
+        }
+
+        if (
+          lowerLine.includes(
+            "app.use"
+          )
+        ) {
+          score += 10;
+        }
+      }
+
+      // --------------------------------
+      // Request flow questions
+      // --------------------------------
+
+      if (
+        lowerQuestion.includes(
+          "request"
+        )
+      ) {
+        if (
+          lowerLine.includes(
+            "app.handle"
+          )
+        ) {
+          score += 10;
+        }
+
+        if (
+          lowerLine.includes(
+            "req"
+          )
+        ) {
+          score += 2;
+        }
+
+        if (
+          lowerLine.includes(
+            "res"
+          )
+        ) {
+          score += 2;
+        }
+
+        if (
+          lowerLine.includes(
+            "next("
+          )
+        ) {
+          score += 4;
+        }
+      }
+
+      // --------------------------------
+      // Prefer actual code over comments
+      // --------------------------------
+
+      const trimmedLine =
+        lowerLine.trim();
+
+      if (
+        trimmedLine.startsWith("//") ||
+        trimmedLine.startsWith("*") ||
+        trimmedLine.startsWith("/*") ||
+        trimmedLine.startsWith("*/")
+      ) {
+        score -= 4;
+      }
+
+      // Prefer function definitions and assignments.
+      if (
+        lowerLine.includes(
+          "function "
+        )
+      ) {
+        score += 2;
+      }
+
+      if (
+        lowerLine.includes("=")
+      ) {
+        score += 1;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestLineIndex = index;
+      }
+    }
+  );
+
+  return {
+    lineIndex: bestLineIndex,
+    score: bestScore,
+  };
+};
+
+
+// ========================================
 // ASK AI
 // ========================================
 
@@ -480,7 +708,7 @@ router.post(
       );
 
       // ------------------------------
-      // Ask Ollama
+      // Ask Gemini
       // ------------------------------
 
       const answer =
@@ -506,87 +734,47 @@ router.post(
           .map((file) => {
 
             const lines =
-              file.content.split(
-                "\n"
+              file.content.split("\n");
+
+            // Find the most relevant
+            // individual line.
+            const {
+              lineIndex: bestLineIndex,
+              score: bestScore,
+            } =
+              findBestSourceLine(
+                lines,
+                question
               );
 
-            const queryTerms =
-              question
-                .toLowerCase()
-                .replace(
-                  /[^\w\s]/g,
-                  ""
-                )
-                .split(/\s+/)
-                .filter(
-                  (word) =>
-                    word.length > 2
-                );
-
-            let bestLineIndex = 0;
-
-            let bestScore = 0;
-
-            lines.forEach(
-              (
-                line,
-                index
-              ) => {
-                const lowerLine =
-                  line.toLowerCase();
-
-                const score =
-                  queryTerms.reduce(
-                    (
-                      total,
-                      term
-                    ) => {
-                      return (
-                        total +
-                        (
-                          lowerLine.includes(
-                            term
-                          )
-                            ? 1
-                            : 0
-                        )
-                      );
-                    },
-                    0
-                  );
-
-                if (
-                  score >
-                  bestScore
-                ) {
-                  bestScore =
-                    score;
-
-                  bestLineIndex =
-                    index;
-                }
-              }
-            );
-
-            const start =
+            // Keep a small context window
+            // around the relevant line.
+            const snippetStart =
               Math.max(
                 0,
                 bestLineIndex - 4
               );
 
-            const end =
+            const snippetEnd =
               Math.min(
                 lines.length,
-                bestLineIndex + 8
+                bestLineIndex + 5
               );
 
             const snippet =
               lines
                 .slice(
-                  start,
-                  end
+                  snippetStart,
+                  snippetEnd
                 )
                 .join("\n");
+
+            // Exact line to highlight.
+            const highlightStartLine =
+              bestLineIndex + 1;
+
+            const highlightEndLine =
+              bestLineIndex + 1;
 
             return {
               path:
@@ -594,11 +782,20 @@ router.post(
 
               snippet,
 
+              // Snippet boundaries
               startLine:
-                start + 1,
+                snippetStart + 1,
 
               endLine:
-                end,
+                snippetEnd,
+
+              // Exact relevant line
+              highlightStartLine,
+
+              highlightEndLine,
+
+              relevanceScore:
+                bestScore,
             };
           });
 

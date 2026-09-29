@@ -19,6 +19,9 @@ function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
+  // Highlighted AI source lines
+  const [highlightedLines, setHighlightedLines] = useState(null);
+
   // Architecture state
   const [showArchitecture, setShowArchitecture] = useState(false);
 
@@ -75,23 +78,41 @@ function App() {
 
   const handleFileClick = (file) => {
     setSelectedFile(file);
+
+    // Remove AI highlighting when manually selecting a file
+    setHighlightedLines(null);
+
+    setTimeout(() => {
+      const codeViewer =
+        document.querySelector(".code-viewer");
+
+      if (codeViewer) {
+        codeViewer.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 100);
   };
 
   // --------------------------------
   // Open AI source in Code Viewer
   // --------------------------------
 
-  const handleSourceClick = (sourcePath) => {
-    if (!repository) {
+  const handleSourceClick = (source) => {
+    if (!repository || !source) {
       return;
     }
 
-    const cleanSourcePath = sourcePath
+    const cleanSourcePath = source.path
       .trim()
       .replace(/^`+|`+$/g, "")
       .replace(/^["']|["']$/g, "");
 
-    console.log("AI source clicked:", cleanSourcePath);
+    console.log(
+      "AI source clicked:",
+      cleanSourcePath
+    );
 
     const sourceFile = repository.files.find(
       (file) => file.path === cleanSourcePath
@@ -102,14 +123,53 @@ function App() {
         "Source file not found in repository:",
         cleanSourcePath
       );
+
       return;
     }
 
-    console.log("Opening source file:", sourceFile.path);
+    console.log(
+      "Opening source file:",
+      sourceFile.path
+    );
 
     setSelectedFile(sourceFile);
 
-    // Expand folders leading to the source file
+    // --------------------------------
+    // Set exact highlighted source lines
+    // --------------------------------
+
+    const sourceStartLine =
+      Number(source.startLine) > 0
+        ? Number(source.startLine)
+        : 1;
+
+    const sourceEndLine =
+      Number(source.endLine) >= sourceStartLine
+        ? Number(source.endLine)
+        : sourceStartLine;
+
+    // The backend sends the exact relevant line
+    // separately from the surrounding source snippet.
+    const highlightStartLine =
+      Number(source.highlightStartLine) > 0
+        ? Number(source.highlightStartLine)
+        : sourceStartLine;
+
+    const highlightEndLine =
+      Number(source.highlightEndLine) >=
+      highlightStartLine
+        ? Number(source.highlightEndLine)
+        : highlightStartLine;
+
+    setHighlightedLines({
+      start: highlightStartLine,
+      end: highlightEndLine,
+    });
+
+    // --------------------------------
+    // Expand folders leading to source
+    // --------------------------------
+
     const parts = cleanSourcePath.split("/");
 
     if (parts.length > 1) {
@@ -129,7 +189,10 @@ function App() {
       }));
     }
 
-    // Scroll to code viewer
+    // --------------------------------
+    // Scroll to exact highlighted line
+    // --------------------------------
+
     setTimeout(() => {
       const codeViewer =
         document.querySelector(".code-viewer");
@@ -139,6 +202,20 @@ function App() {
           behavior: "smooth",
           block: "start",
         });
+      }
+
+      const firstHighlightedLine =
+        document.querySelector(
+          `.code-line[data-line="${highlightStartLine}"]`
+        );
+
+      if (firstHighlightedLine) {
+        setTimeout(() => {
+          firstHighlightedLine.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }, 300);
       }
     }, 150);
   };
@@ -218,6 +295,7 @@ function App() {
         setMessage(
           "Please enter a GitHub repository URL."
         );
+
         return;
       }
 
@@ -228,6 +306,7 @@ function App() {
       setRepository(null);
       setSelectedFile(null);
       setExpandedFolders({});
+      setHighlightedLines(null);
 
       // Clear previous AI results
       setAiAnswer("");
@@ -300,6 +379,7 @@ function App() {
       setAiError(
         "Please enter a question."
       );
+
       return;
     }
 
@@ -308,6 +388,7 @@ function App() {
       setAiAnswer("");
       setAiSources([]);
       setAiError("");
+      setHighlightedLines(null);
 
       const response = await axios.post(
         `https://codemap-server.onrender.com/api/repositories/${repository._id}/ask`,
@@ -526,7 +607,7 @@ function App() {
                           className="source-file"
                           onClick={() =>
                             handleSourceClick(
-                              source.path
+                              source
                             )
                           }
                         >
@@ -663,8 +744,46 @@ function App() {
               <div className="code-content">
 
                 {selectedFile ? (
-                  <pre>
-                    {selectedFile.content}
+                  <pre className="code-block">
+
+                    {selectedFile.content
+                      .split("\n")
+                      .map(
+                        (line, index) => {
+                          const lineNumber =
+                            index + 1;
+
+                          const isHighlighted =
+                            highlightedLines &&
+                            lineNumber >=
+                              highlightedLines.start &&
+                            lineNumber <=
+                              highlightedLines.end;
+
+                          return (
+                            <div
+                              key={lineNumber}
+                              data-line={lineNumber}
+                              className={`code-line ${
+                                isHighlighted
+                                  ? "highlighted-code-line"
+                                  : ""
+                              }`}
+                            >
+
+                              <span className="code-line-number">
+                                {lineNumber}
+                              </span>
+
+                              <span className="code-line-content">
+                                {line || " "}
+                              </span>
+
+                            </div>
+                          );
+                        }
+                      )}
+
                   </pre>
                 ) : (
                   <p>
