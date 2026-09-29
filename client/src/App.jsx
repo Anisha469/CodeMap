@@ -25,6 +25,11 @@ function App() {
   // Architecture state
   const [showArchitecture, setShowArchitecture] = useState(false);
 
+  // Impact Analysis state
+  const [impactData, setImpactData] = useState(null);
+  const [impactLoading, setImpactLoading] = useState(false);
+  const [impactError, setImpactError] = useState("");
+
   // --------------------------------
   // Build file/folder tree
   // --------------------------------
@@ -43,13 +48,13 @@ function App() {
         if (!current[part]) {
           current[part] = isFile
             ? {
-                type: "file",
-                file,
-              }
+              type: "file",
+              file,
+            }
             : {
-                type: "folder",
-                children: {},
-              };
+              type: "folder",
+              children: {},
+            };
         }
 
         if (!isFile) {
@@ -93,6 +98,45 @@ function App() {
         });
       }
     }, 100);
+  };
+
+  // --------------------------------
+  // Analyze impact of a selected file
+  // --------------------------------
+
+  const handleImpactAnalysis = async () => {
+    if (!repository || !selectedFile) {
+      return;
+    }
+
+    try {
+      setImpactLoading(true);
+      setImpactData(null);
+      setImpactError("");
+
+      const response = await axios.get(
+        `https://codemap-server.onrender.com/api/repositories/${repository._id}/impact`,
+        {
+          params: {
+            file: selectedFile.path,
+          },
+        }
+      );
+
+      setImpactData(response.data);
+    } catch (error) {
+      console.error(
+        "Impact analysis error:",
+        error.response?.data || error.message
+      );
+
+      setImpactError(
+        error.response?.data?.message ||
+        "Failed to analyze file impact."
+      );
+    } finally {
+      setImpactLoading(false);
+    }
   };
 
   // --------------------------------
@@ -157,7 +201,7 @@ function App() {
 
     const highlightEndLine =
       Number(source.highlightEndLine) >=
-      highlightStartLine
+        highlightStartLine
         ? Number(source.highlightEndLine)
         : highlightStartLine;
 
@@ -242,11 +286,10 @@ function App() {
           return (
             <div
               key={item.file.path}
-              className={`file-item ${
-                isSelected
+              className={`file-item ${isSelected
                   ? "selected-file"
                   : ""
-              }`}
+                }`}
               onClick={() =>
                 handleFileClick(item.file)
               }
@@ -351,13 +394,13 @@ function App() {
       console.error(
         "Repository indexing error:",
         error.response?.data ||
-          error.message
+        error.message
       );
 
       setMessage(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to index repository"
+        error.message ||
+        "Failed to index repository"
       );
     } finally {
       setLoading(false);
@@ -408,12 +451,12 @@ function App() {
       console.error(
         "AI ERROR:",
         error.response?.data ||
-          error.message
+        error.message
       );
 
       setAiError(
         error.response?.data?.message ||
-          "Failed to answer question."
+        "Failed to answer question."
       );
     } finally {
       setAiLoading(false);
@@ -735,11 +778,65 @@ function App() {
 
             <div className="code-viewer">
 
-              <div className="panel-header">
-                {selectedFile
-                  ? selectedFile.path
-                  : "Code Viewer"}
+              <div className="panel-header code-viewer-header">
+                <span>
+                  {selectedFile
+                    ? selectedFile.path
+                    : "Code Viewer"}
+                </span>
+
+                {selectedFile && (
+                  <button
+                    className="impact-button"
+                    onClick={handleImpactAnalysis}
+                    disabled={impactLoading}
+                  >
+                    {impactLoading
+                      ? "Analyzing..."
+                      : "Analyze Impact"}
+                  </button>
+                )}
               </div>
+
+              {impactData && (
+                <div className="impact-panel">
+                  <h3>Impact Analysis</h3>
+
+                  <p>
+                    <strong>Changed file:</strong>{" "}
+                    {impactData.changedFile}
+                  </p>
+
+                  <h4>Affected files</h4>
+
+                  {impactData.affectedFiles.length > 0 ? (
+                    <div className="impact-file-list">
+                      {impactData.affectedFiles.map((filePath) => (
+                        <button
+                          key={filePath}
+                          className="impact-file"
+                          onClick={() => {
+                            const affectedFile =
+                              repository.files.find(
+                                (file) => file.path === filePath
+                              );
+
+                            if (affectedFile) {
+                              handleFileClick(affectedFile);
+                            }
+                          }}
+                        >
+                          → {filePath}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="impact-empty">
+                      No directly affected files found.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="code-content">
 
@@ -756,19 +853,18 @@ function App() {
                           const isHighlighted =
                             highlightedLines &&
                             lineNumber >=
-                              highlightedLines.start &&
+                            highlightedLines.start &&
                             lineNumber <=
-                              highlightedLines.end;
+                            highlightedLines.end;
 
                           return (
                             <div
                               key={lineNumber}
                               data-line={lineNumber}
-                              className={`code-line ${
-                                isHighlighted
+                              className={`code-line ${isHighlighted
                                   ? "highlighted-code-line"
                                   : ""
-                              }`}
+                                }`}
                             >
 
                               <span className="code-line-number">

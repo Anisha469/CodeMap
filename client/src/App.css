@@ -381,3 +381,82 @@ body {
   opacity: 1;
   font-weight: 700;
 }
+/* --------------------------------
+   Impact Analysis
+-------------------------------- */
+
+.code-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.impact-button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: #2563eb;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.impact-button:hover {
+  background: #3b82f6;
+}
+
+.impact-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.impact-panel {
+  margin: 16px;
+  padding: 16px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.65);
+}
+
+.impact-panel h3 {
+  margin: 0 0 12px;
+  color: #60a5fa;
+}
+
+.impact-panel h4 {
+  margin: 16px 0 8px;
+}
+
+.impact-panel p {
+  margin: 6px 0;
+}
+
+.impact-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.impact-file {
+  width: fit-content;
+  border: none;
+  background: transparent;
+  color: #93c5fd;
+  padding: 4px 0;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.impact-file:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.impact-empty {
+  opacity: 0.65;
+  font-size: 14px;
+}
