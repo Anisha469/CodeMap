@@ -1,8 +1,11 @@
-const axios = require("axios");
+const { GoogleGenAI } = require("@google/genai");
 
-const sleep = (ms) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+const sleep = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 const askAI = async (question, context) => {
   const prompt = `
@@ -18,7 +21,7 @@ IMPORTANT RULES:
 3. Always mention exact file paths when relevant.
 4. Keep answers concise and practical.
 5. If the context is insufficient, say:
-   "The provided repository context is insufficient to answer this accurately."
+"The provided repository context is insufficient to answer this accurately."
 
 Question:
 ${question}
@@ -32,8 +35,8 @@ Now answer the question directly.
   const models = [
     "gemini-3.8-flash",
     "gemini-3.7-flash",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
   ];
 
   for (const model of models) {
@@ -43,80 +46,58 @@ Now answer the question directly.
           `Trying Gemini ${model} (attempt ${attempt})`
         );
 
-        const response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          {
-            contents: [
-              {
-                parts: [
-                  {
-                    text: prompt,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-            },
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": process.env.GEMINI_API_KEY,
-            },
-          }
-        );
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+        });
 
-        const answer =
-          response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const answer = response.text;
 
-        if (answer) {
-          console.log(
-            `Gemini response generated using ${model}`
-          );
-
-          return answer;
+        if (!answer) {
+          throw new Error("Gemini returned an empty response");
         }
 
-        throw new Error("Gemini returned an empty response");
+        console.log(
+          `Gemini response generated successfully using ${model}`
+        );
+
+        return answer;
 
       } catch (error) {
-        const status = error.response?.status;
+        const status =
+          error.status ||
+          error.response?.status;
 
         console.error(
           `Gemini ${model} attempt ${attempt} failed:`,
-          error.response?.data || error.message
+          error.message
         );
 
-        // Retry temporary errors
+        // Retry temporary server overload
         if (status === 503 || status === 429) {
           if (attempt === 1) {
             console.log(
-              `Retrying ${model} after temporary error...`
+              `Retrying ${model} in 2 seconds...`
             );
 
-            await sleep(1500);
+            await sleep(2000);
             continue;
           }
 
-          // Move to the next model after retrying
           console.log(
-            `${model} unavailable after retry. Trying next model...`
+            `${model} unavailable. Trying next model...`
           );
 
           break;
         }
 
-        // Authentication / invalid request / other permanent errors
-        throw new Error(
-          "Failed to generate AI response"
-        );
+        throw error;
       }
     }
   }
 
   throw new Error(
-    "All Gemini models are temporarily unavailable. Please try again later."
+    "All Gemini models are temporarily unavailable."
   );
 };
 

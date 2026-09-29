@@ -460,3 +460,20 @@ body {
   opacity: 0.65;
   font-size: 14px;
 }
+.impact-explanation {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.impact-explanation h4 {
+  margin: 0 0 8px;
+  color: #93c5fd;
+}
+
+.impact-explanation p {
+  margin: 0;
+  color: #e2e8f0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

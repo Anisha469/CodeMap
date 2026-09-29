@@ -12,7 +12,6 @@ const {
 
 const {
   getArchitecture,
-  getImpactAnalysis,
 } = require("../services/architectureService");
 
 const {
@@ -446,6 +445,104 @@ router.get("/:id/impact", async (req, res) => {
 
     res.status(500).json({
       message: "Failed to generate impact analysis",
+    });
+  }
+});
+
+// ========================================
+// AI IMPACT EXPLANATION
+// ========================================
+
+router.post("/:id/impact/explain", async (req, res) => {
+  try {
+    const { changedFile, affectedFiles } = req.body;
+
+    if (!changedFile) {
+      return res.status(400).json({
+        message: "Changed file is required",
+      });
+    }
+
+    const repository = await Repository.findById(
+      req.params.id
+    );
+
+    if (!repository) {
+      return res.status(404).json({
+        message: "Repository not found",
+      });
+    }
+
+    const changedFileData = repository.files.find(
+      (file) => file.path === changedFile
+    );
+
+    if (!changedFileData) {
+      return res.status(404).json({
+        message: "Changed file not found",
+      });
+    }
+
+    const affectedFileData = repository.files.filter(
+      (file) =>
+        affectedFiles?.includes(file.path)
+    );
+
+    const context = `
+Changed File:
+${changedFile}
+
+Changed File Content:
+${changedFileData.content.slice(0, 6000)}
+
+Affected Files:
+${affectedFileData
+  .map(
+    (file) => `
+FILE: ${file.path}
+
+CONTENT:
+${file.content.slice(0, 4000)}
+`
+  )
+  .join("\n")}
+`;
+
+    const question = `
+Explain why the listed affected files could be impacted
+if the changed file is modified.
+
+Changed file:
+${changedFile}
+
+Affected files:
+${affectedFiles?.join(", ") || "None"}
+
+For each affected file:
+1. Explain the dependency relationship.
+2. Mention the relevant imported/exported functionality.
+3. Keep the explanation concise.
+4. Do not invent relationships that are not supported by the provided code.
+`;
+
+    const explanation = await askAI(
+      question,
+      context
+    );
+
+    res.json({
+      changedFile,
+      affectedFiles: affectedFiles || [],
+      explanation,
+    });
+  } catch (error) {
+    console.error(
+      "Impact explanation failed:",
+      error.message
+    );
+
+    res.status(500).json({
+      message: "Failed to generate impact explanation",
     });
   }
 });

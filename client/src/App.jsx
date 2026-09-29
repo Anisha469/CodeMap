@@ -104,6 +104,10 @@ function App() {
   // Analyze impact of a selected file
   // --------------------------------
 
+  // --------------------------------
+  // Analyze impact + explain with AI
+  // --------------------------------
+
   const handleImpactAnalysis = async () => {
     if (!repository || !selectedFile) {
       return;
@@ -114,7 +118,11 @@ function App() {
       setImpactData(null);
       setImpactError("");
 
-      const response = await axios.get(
+      // --------------------------------
+      // Step 1: Get affected files
+      // --------------------------------
+
+      const impactResponse = await axios.get(
         `https://codemap-server.onrender.com/api/repositories/${repository._id}/impact`,
         {
           params: {
@@ -123,7 +131,34 @@ function App() {
         }
       );
 
-      setImpactData(response.data);
+      const impactResult = impactResponse.data;
+
+      setImpactData(impactResult);
+
+      // --------------------------------
+      // Step 2: Ask AI to explain impact
+      // --------------------------------
+
+      if (
+        impactResult.affectedFiles &&
+        impactResult.affectedFiles.length > 0
+      ) {
+        const explanationResponse =
+          await axios.post(
+                `https://codemap-server.onrender.com/api/repositories/${repository._id}/impact/explain`,
+            {
+              changedFile: impactResult.changedFile,
+              affectedFiles:
+                impactResult.affectedFiles,
+            }
+          );
+
+        setImpactData({
+          ...impactResult,
+          explanation:
+            explanationResponse.data.explanation,
+        });
+      }
     } catch (error) {
       console.error(
         "Impact analysis error:",
@@ -287,8 +322,8 @@ function App() {
             <div
               key={item.file.path}
               className={`file-item ${isSelected
-                  ? "selected-file"
-                  : ""
+                ? "selected-file"
+                : ""
                 }`}
               onClick={() =>
                 handleFileClick(item.file)
@@ -835,6 +870,12 @@ function App() {
                       No directly affected files found.
                     </p>
                   )}
+                  {impactData.explanation && (
+                    <div className="impact-explanation">
+                      <h4>Why are these files affected?</h4>
+                      <p>{impactData.explanation}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -862,8 +903,8 @@ function App() {
                               key={lineNumber}
                               data-line={lineNumber}
                               className={`code-line ${isHighlighted
-                                  ? "highlighted-code-line"
-                                  : ""
+                                ? "highlighted-code-line"
+                                : ""
                                 }`}
                             >
 
