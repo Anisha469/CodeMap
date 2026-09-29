@@ -195,6 +195,20 @@ const resolveImport = (
 };
 
 
+const getImpactAnalysis = async (repositoryId, changedFile) => {
+  const architecture = await getArchitecture(repositoryId);
+
+  const affectedFiles = architecture.edges
+    .filter((edge) => edge.target === changedFile)
+    .map((edge) => edge.source);
+
+  return {
+    changedFile,
+    affectedFiles,
+  };
+};
+
 module.exports = {
   getArchitecture,
+  getImpactAnalysis,
 };

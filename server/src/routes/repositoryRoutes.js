@@ -12,6 +12,7 @@ const {
 
 const {
   getArchitecture,
+  getImpactAnalysis,
 } = require("../services/architectureService");
 
 const {
@@ -420,6 +421,34 @@ router.get(
   }
 );
 
+// Get files affected by a changed file
+router.get("/:id/impact", async (req, res) => {
+  try {
+    const { file } = req.query;
+
+    if (!file) {
+      return res.status(400).json({
+        message: "File path is required",
+      });
+    }
+
+    const impact = await getImpactAnalysis(
+      req.params.id,
+      file
+    );
+
+    res.json(impact);
+  } catch (error) {
+    console.error(
+      "Impact analysis failed:",
+      error.message
+    );
+
+    res.status(500).json({
+      message: "Failed to generate impact analysis",
+    });
+  }
+});
 
 // ========================================
 // Helper: Calculate exact relevant source
